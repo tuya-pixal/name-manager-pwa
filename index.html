@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Name Manager PWA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1d2671">
+<link rel="manifest" href="manifest.json">
+<style>
+
+body{
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(-45deg,#1d2671,#c33764,#1d2671,#0f2027);
+    background-size:400% 400%;
+    animation: gradientMove 10s ease infinite;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+@keyframes gradientMove{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+.container{
+    width:550px;
+    padding:30px;
+    border-radius:20px;
+    backdrop-filter: blur(15px);
+    background: rgba(255,255,255,0.1);
+    box-shadow:0 15px 35px rgba(0,0,0,0.4);
+    color:white;
+}
+h2{text-align:center;margin-bottom:15px;}
+.counter{text-align:right;font-size:14px;margin-bottom:10px;color:#ffdd57;}
+input{width:100%;padding:12px;margin:8px 0;border:none;border-radius:10px;outline:none;font-size:14px;}
+button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;transition:0.3s;}
+.login-btn{background:#00c6ff;color:white;}
+.login-btn:hover{background:#0072ff;transform:scale(1.05);}
+.add-btn{background:#00ff99;color:black;}
+.add-btn:hover{background:#00cc77;transform:scale(1.05);}
+.download-btn{background:#ffcc00;color:black;}
+.download-btn:hover{background:#ffaa00;transform:scale(1.05);}
+.delete-btn{background:#ff4c4c;color:white;border-radius:50%;width:25px;height:25px;font-weight:bold;cursor:pointer;transition:0.2s;}
+.delete-btn:hover{background:#cc0000;transform:scale(1.2);}
+table{width:100%;margin-top:10px;border-collapse:collapse;background: rgba(255,255,255,0.15);border-radius:10px;overflow:hidden;}
+th{background: rgba(0,0,0,0.4);}
+th, td{padding:10px;text-align:center;}
+tr:nth-child(even){background: rgba(255,255,255,0.1);}
+.search-input{width:100%;padding:10px;border-radius:10px;border:none;margin-bottom:10px;font-size:14px;}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>Login</h2>
+
+<div id="loginSection">
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button class="login-btn" onclick="login()">Login</button>
+</div>
+
+<div id="appSection" style="display:none;">
+    <h2>Name Manager</h2>
+
+    <input type="text" id="firstName" placeholder="First Name">
+    <input type="text" id="lastName" placeholder="Last Name">
+    <button class="add-btn" onclick="addName()">Add Name</button>
+    <button class="download-btn" onclick="downloadCSV()">Download CSV</button>
+
+    <input type="text" class="search-input" id="searchBox" placeholder="Search... (supports multiple words)" onkeyup="searchTable()">
+
+    <div class="counter" id="nameCounter">Total Names: 0</div>
+
+    <table id="nameTable">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+</div>
+
+<script>
+let names = [];
+
+
+window.onload = function(){
+    let savedNames = localStorage.getItem("names");
+    if(savedNames){
+        names = JSON.parse(savedNames);
+        names.forEach(n => addRow(n[0], n[1]));
+    }
+
+   
+    if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('sw.js')
+        .then(()=>console.log('Service Worker registered'))
+        .catch(err=>console.log('SW registration failed', err));
+    }
+}
+
+function login(){
+    let user = document.getElementById("username").value;
+    let pass = document.getElementById("password").value;
+    if(user === "tuya" && pass === "2007"){
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("appSection").style.display = "block";
+    }else{
+        alert("Wrong login!");
+    }
+}
+
+
+function updateCounter(){
+    let table = document.querySelector("#nameTable tbody");
+    let visibleRows = Array.from(table.rows).filter(r => r.style.display !== "none");
+    document.getElementById("nameCounter").innerText = `Total Names: ${visibleRows.length}`;
+}
+
+
+function addRow(first,last){
+    let table = document.querySelector("#nameTable tbody");
+    let row = table.insertRow();
+    row.insertCell(0).innerText = first;
+    row.insertCell(1).innerText = last;
+    let delCell = row.insertCell(2);
+    let btn = document.createElement("button");
+    btn.innerText = "✖";
+    btn.className = "delete-btn";
+    btn.title = "Delete";
+    btn.onclick = function(){
+        let index = Array.from(table.rows).indexOf(row);
+        names.splice(index,1);
+        localStorage.setItem("names", JSON.stringify(names));
+        row.remove();
+        searchTable();
+    }
+    delCell.appendChild(btn);
+}
+
+
+function addName(){
+    let first = document.getElementById("firstName").value.trim();
+    let last = document.getElementById("lastName").value.trim();
+    if(first === "" || last === ""){
+        alert("Fill all fields!");
+        return;
+    }
+    names.push([first,last]);
+    localStorage.setItem("names", JSON.stringify(names));
+    addRow(first,last);
+    document.getElementById("firstName").value = "";
+    document.getElementById("lastName").value = "";
+    searchTable();
+}
+
+
+function searchTable(){
+    let input = document.getElementById("searchBox").value.toLowerCase().trim();
+    let table = document.getElementById("nameTable").tBodies[0];
+    let rows = table.rows;
+    let words = input.split(/\s+/).filter(w => w.length > 0);
+    for(let i=0;i<rows.length;i++){
+        let first = rows[i].cells[0].innerText.toLowerCase();
+        let last = rows[i].cells[1].innerText.toLowerCase();
+        let match = words.every(word => first.includes(word) || last.includes(word));
+        rows[i].style.display = match ? "" : "none";
+    }
+    updateCounter();
+}
+
+
+function downloadCSV(){
+    let csvContent = "First Name,Last Name\n";
+    names.forEach(function(row){
+        csvContent += `"${row[0]}","${row[1]}"\n`;
+    });
+    let blob = new Blob([csvContent], { type: "text/csv" });
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "names list.csv";
+    link.click();
+}
+</script>
+
+</body>
+</html>
+
+
+
