@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Name Manager PWA</title>
+<title>Name Manager Multi-User</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1d2671">
 <link rel="manifest" href="manifest.json">
 <style>
-
 body{
     margin:0;
     font-family: 'Segoe UI', sans-serif;
@@ -39,6 +38,8 @@ input{width:100%;padding:12px;margin:8px 0;border:none;border-radius:10px;outlin
 button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;transition:0.3s;}
 .login-btn{background:#00c6ff;color:white;}
 .login-btn:hover{background:#0072ff;transform:scale(1.05);}
+.signup-btn{background:#ff99cc;color:black;}
+.signup-btn:hover{background:#ff66aa;transform:scale(1.05);}
 .add-btn{background:#00ff99;color:black;}
 .add-btn:hover{background:#00cc77;transform:scale(1.05);}
 .download-btn{background:#ffcc00;color:black;}
@@ -50,22 +51,26 @@ th{background: rgba(0,0,0,0.4);}
 th, td{padding:10px;text-align:center;}
 tr:nth-child(even){background: rgba(255,255,255,0.1);}
 .search-input{width:100%;padding:10px;border-radius:10px;border:none;margin-bottom:10px;font-size:14px;}
+.logout-btn{background:#ff6666;color:white;}
+.logout-btn:hover{background:#cc0000;transform:scale(1.05);}
 </style>
 </head>
 <body>
 
 <div class="container">
 
-<h2>Login</h2>
+<h2>Login / Sign Up</h2>
 
 <div id="loginSection">
     <input type="text" id="username" placeholder="Username">
     <input type="password" id="password" placeholder="Password">
     <button class="login-btn" onclick="login()">Login</button>
+    <button class="signup-btn" onclick="signUp()">Sign Up</button>
 </div>
 
 <div id="appSection" style="display:none;">
     <h2>Name Manager</h2>
+    <button class="logout-btn" onclick="logout()">Logout</button>
 
     <input type="text" id="firstName" placeholder="First Name">
     <input type="text" id="lastName" placeholder="Last Name">
@@ -91,17 +96,22 @@ tr:nth-child(even){background: rgba(255,255,255,0.1);}
 </div>
 
 <script>
-let names = [];
+let currentUser = null;
+let users = {};
+let names = []; 
 
 
 window.onload = function(){
-    let savedNames = localStorage.getItem("names");
-    if(savedNames){
-        names = JSON.parse(savedNames);
-        names.forEach(n => addRow(n[0], n[1]));
+    let savedUsers = localStorage.getItem("users");
+    if(savedUsers) users = JSON.parse(savedUsers);
+
+    let savedSession = localStorage.getItem("currentUser");
+    if(savedSession){
+        currentUser = savedSession;
+        names = users[currentUser] || [];
+        showApp();
     }
 
-   
     if('serviceWorker' in navigator){
         navigator.serviceWorker.register('sw.js')
         .then(()=>console.log('Service Worker registered'))
@@ -109,18 +119,57 @@ window.onload = function(){
     }
 }
 
+
+function showApp(){
+    document.getElementById("loginSection").style.display="none";
+    document.getElementById("appSection").style.display="block";
+    document.querySelector("#nameTable tbody").innerHTML = "";
+    names.forEach(n => addRow(n[0], n[1]));
+    searchTable();
+}
+
+
+function logout(){
+    localStorage.removeItem("currentUser");
+    currentUser = null;
+    names = [];
+    document.getElementById("appSection").style.display="none";
+    document.getElementById("loginSection").style.display="block";
+}
+
+
 function login(){
-    let user = document.getElementById("username").value;
-    let pass = document.getElementById("password").value;
-    if(user === "tuya" && pass === "2007"){
-        document.getElementById("loginSection").style.display = "none";
-        document.getElementById("appSection").style.display = "block";
-    }else{
-        alert("Wrong login!");
+    let user = document.getElementById("username").value.trim();
+    let pass = document.getElementById("password").value.trim();
+
+    if(users[user] && users[user].password === pass){
+        currentUser = user;
+        names = users[user].names || [];
+        localStorage.setItem("currentUser", currentUser);
+        showApp();
+    } else {
+        alert("Username or password incorrect!");
     }
 }
 
 
+function signUp(){
+    let user = document.getElementById("username").value.trim();
+    let pass = document.getElementById("password").value.trim();
+
+    if(user==="" || pass===""){
+        alert("Fill all fields!");
+        return;
+    }
+    if(users[user]){
+        alert("Username already exists!");
+        return;
+    }
+
+    users[user] = {password: pass, names: []};
+    localStorage.setItem("users", JSON.stringify(users));
+    alert("Account created! You can now login.");
+}
 function updateCounter(){
     let table = document.querySelector("#nameTable tbody");
     let visibleRows = Array.from(table.rows).filter(r => r.style.display !== "none");
@@ -141,7 +190,8 @@ function addRow(first,last){
     btn.onclick = function(){
         let index = Array.from(table.rows).indexOf(row);
         names.splice(index,1);
-        localStorage.setItem("names", JSON.stringify(names));
+        users[currentUser].names = names;
+        localStorage.setItem("users", JSON.stringify(users));
         row.remove();
         searchTable();
     }
@@ -152,12 +202,12 @@ function addRow(first,last){
 function addName(){
     let first = document.getElementById("firstName").value.trim();
     let last = document.getElementById("lastName").value.trim();
-    if(first === "" || last === ""){
-        alert("Fill all fields!");
-        return;
-    }
+    if(first==="" || last===""){ alert("Fill all fields!"); return; }
+
     names.push([first,last]);
-    localStorage.setItem("names", JSON.stringify(names));
+    users[currentUser].names = names;
+    localStorage.setItem("users", JSON.stringify(users));
+
     addRow(first,last);
     document.getElementById("firstName").value = "";
     document.getElementById("lastName").value = "";
@@ -169,7 +219,7 @@ function searchTable(){
     let input = document.getElementById("searchBox").value.toLowerCase().trim();
     let table = document.getElementById("nameTable").tBodies[0];
     let rows = table.rows;
-    let words = input.split(/\s+/).filter(w => w.length > 0);
+    let words = input.split(/\s+/).filter(w => w.length>0);
     for(let i=0;i<rows.length;i++){
         let first = rows[i].cells[0].innerText.toLowerCase();
         let last = rows[i].cells[1].innerText.toLowerCase();
@@ -188,13 +238,15 @@ function downloadCSV(){
     let blob = new Blob([csvContent], { type: "text/csv" });
     let link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "names list.csv";
+    link.download = currentUser+"_names.csv";
     link.click();
 }
 </script>
 
 </body>
 </html>
+
+
 
 
 
