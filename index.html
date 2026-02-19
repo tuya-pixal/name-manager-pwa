@@ -70,14 +70,13 @@ tr:nth-child(even){background: rgba(255,255,255,0.1);}
 
 <div id="appSection" style="display:none;">
     <h2>Name Manager</h2>
-    <button class="logout-btn" onclick="logout()">Logout</button>
 
     <input type="text" id="firstName" placeholder="First Name">
     <input type="text" id="lastName" placeholder="Last Name">
     <button class="add-btn" onclick="addName()">Add Name</button>
     <button class="download-btn" onclick="downloadCSV()">Download CSV</button>
 
-    <input type="text" class="search-input" id="searchBox" placeholder="Search... (supports multiple words)" onkeyup="searchTable()">
+    <input type="text" class="search-input" id="searchBox" placeholder="Search..." onkeyup="searchTable()">
 
     <div class="counter" id="nameCounter">Total Names: 0</div>
 
@@ -86,12 +85,14 @@ tr:nth-child(even){background: rgba(255,255,255,0.1);}
             <tr>
                 <th>First Name</th>
                 <th>Last Name</th>
-                <th>Action</th>
+                <th>Remove</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 </div>
+    
+    <button class="logout-btn" onclick="logout()">Logout</button>
 
 </div>
 
@@ -245,6 +246,7 @@ function downloadCSV(){
 
 </body>
 </html>
+
 
 
 
